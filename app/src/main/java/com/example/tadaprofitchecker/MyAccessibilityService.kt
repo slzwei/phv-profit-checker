@@ -42,7 +42,7 @@ class MyAccessibilityService : AccessibilityService() {
     private var lastShownText = ""
     private var currentDisplayedText = ""
 
-    private val apiKey = "AIzaSyA83pFNSJZwztR5YjGsbB5jCJ3KarqSYYA"
+    private val apiKey = "YOUR_API_KEY"
     private val tripHistory = mutableListOf<TripRecord>()
 
     override fun onServiceConnected() {
