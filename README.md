@@ -1,6 +1,6 @@
 # PHV Profit Checker 🚗💰
 
-**PHV Profit Checker** is an Android accessibility-based utility app designed for private hire drivers (TADA, Grab) in Singapore. It helps drivers instantly assess **trip profitability** based on **net fare**, **pickup time**, and **trip time** — so they can make smart decisions fast.
+**PHV Profit Checker** is an Android accessibility-based utility app designed for private hire drivers (TADA (soon, Grab too)) in Singapore. It helps drivers instantly assess **trip profitability** based on **net fare**, **pickup time**, and **trip time** — so they can make smart decisions fast.
 
 ---
 
