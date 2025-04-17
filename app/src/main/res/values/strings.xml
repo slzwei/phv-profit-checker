@@ -1,0 +1,10 @@
+<resources>
+    <string name="app_name">TADA Profit Checker</string>
+
+<string-array name="sort_options">
+    <item>Latest First</item>
+    <item>Highest Fare</item>
+    <item>Highest Earnings per Minute</item>
+</string-array>
+
+</resources>

@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="12dp"
+    android:background="#FFFFFF"
+    android:elevation="2dp">
+
+    <TextView
+        android:id="@+id/fareText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Fare: S$0.00"
+        android:textSize="18sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/minutesText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Total Time: 0 mins"
+        android:textSize="16sp" />
+
+    <TextView
+        android:id="@+id/earningsText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Earnings per Minute: S$0.00"
+        android:textSize="16sp"
+        android:textColor="#FF8800"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/distanceText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Distance: 0.0 km"
+        android:textSize="16sp" />
+
+    <TextView
+        android:id="@+id/pickupText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Pickup: 123 Main Rd, (S)123456"
+        android:textSize="16sp" />
+
+    <TextView
+        android:id="@+id/dropoffText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Drop-offs:\n• 456 Somewhere St, (S)654321"
+        android:textSize="16sp"
+        android:lineSpacingExtra="4dp"
+        android:paddingTop="4dp" />
+
+    <TextView
+        android:id="@+id/timestampText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Recorded: 2025-04-17 14:32"
+        android:textSize="14sp"
+        android:textColor="#888888"
+        android:paddingTop="4dp" />
+</LinearLayout>
