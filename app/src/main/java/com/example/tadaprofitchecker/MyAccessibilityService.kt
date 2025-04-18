@@ -34,6 +34,8 @@ import android.text.Spanned
 import android.text.style.ForegroundColorSpan
 import android.text.style.RelativeSizeSpan
 import android.text.style.StyleSpan
+import com.example.tadaprofitchecker.BuildConfig
+
 
 class MyAccessibilityService : AccessibilityService() {
 
@@ -42,7 +44,7 @@ class MyAccessibilityService : AccessibilityService() {
     private var lastShownText = ""
     private var currentDisplayedText = ""
 
-    private val apiKey = "YOUR_API_KEY"
+    private val apiKey = BuildConfig.MY_GOOGLE_MAPS_KEY
     private val tripHistory = mutableListOf<TripRecord>()
 
     override fun onServiceConnected() {
