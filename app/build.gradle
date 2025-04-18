@@ -2,10 +2,16 @@ plugins {
     id 'com.android.application'
     id 'org.jetbrains.kotlin.android'
 }
+def secretsPropsFile = rootProject.file("secrets.properties")
+def secretsProps = new Properties()
+secretsProps.load(new FileInputStream(secretsPropsFile))
 
 android {
     namespace 'com.example.tadaprofitchecker'
     compileSdk 33
+    buildFeatures {
+        buildConfig true
+    }
 
     defaultConfig {
         applicationId "com.example.tadaprofitchecker.v2"
@@ -13,6 +19,7 @@ android {
         targetSdk 33
         versionCode 1
         versionName "1.0"
+        buildConfigField "String", "MY_GOOGLE_MAPS_KEY", "\"${secretsProps['MY_GOOGLE_MAPS_KEY']}\""
     }
 
     buildTypes {
