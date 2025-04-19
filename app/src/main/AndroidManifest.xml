@@ -14,9 +14,9 @@
         android:theme="@style/Theme.AppCompat.Light.DarkActionBar"
         android:icon="@android:drawable/sym_def_app_icon">
 
-        <!-- ✅ TripHistoryActivity is now the launcher screen -->
+        <!-- ✅ SetupActivity is now the launcher screen -->
         <activity
-            android:name=".TripHistoryActivity"
+            android:name=".SetupActivity"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -24,6 +24,12 @@
             </intent-filter>
         </activity>
 
+        <!-- ✅ Regular screen for viewing trip history -->
+        <activity
+            android:name=".TripHistoryActivity"
+            android:exported="true" />
+
+        <!-- ✅ Accessibility Service -->
         <service
             android:name=".MyAccessibilityService"
             android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
