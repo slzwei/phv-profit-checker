@@ -6,6 +6,7 @@ import android.graphics.Color
 import android.graphics.PixelFormat
 import android.graphics.Typeface
 import android.os.Build
+import android.os.PowerManager
 import android.util.Log
 import android.view.Gravity
 import android.view.LayoutInflater
@@ -15,12 +16,7 @@ import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import android.widget.Button
 import android.widget.TextView
-import androidx.recyclerview.widget.LinearLayoutManager
-import androidx.recyclerview.widget.RecyclerView
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.*
 import org.json.JSONObject
 import java.net.URLEncoder
 import java.net.URL
@@ -36,7 +32,6 @@ import android.text.style.RelativeSizeSpan
 import android.text.style.StyleSpan
 import com.example.tadaprofitchecker.BuildConfig
 
-
 class MyAccessibilityService : AccessibilityService() {
 
     private var overlayView: View? = null
@@ -46,10 +41,54 @@ class MyAccessibilityService : AccessibilityService() {
 
     private val apiKey = BuildConfig.MY_GOOGLE_MAPS_KEY
     private val tripHistory = mutableListOf<TripRecord>()
+    private fun getMultiStopTripDurations(
+        pickupAddress: String,
+        dropoffs: List<String>,
+        callback: (Int, Int, Int) -> Unit
+    ) {
+        getCurrentLocation { currentLocation ->
+            if (currentLocation == null) {
+                callback(0, 0, 0)
+                return@getCurrentLocation
+            }
+
+            CoroutineScope(Dispatchers.IO).launch {
+                try {
+                    val originLatLng = "${currentLocation.latitude},${currentLocation.longitude}"
+                    val pickup = URLEncoder.encode(pickupAddress, "UTF-8")
+                    val pickupUrl = URL("https://maps.googleapis.com/maps/api/directions/json?origin=$originLatLng&destination=$pickup&key=$apiKey")
+                    val pickupDuration = fetchDurationFromUrl(pickupUrl)
+
+                    var tripDuration = 0
+                    var totalDistance = 0
+                    var last = pickup
+                    for (addr in dropoffs) {
+                        val next = URLEncoder.encode(addr, "UTF-8")
+                        val url = URL("https://maps.googleapis.com/maps/api/directions/json?origin=$last&destination=$next&key=$apiKey")
+                        val (dura, dist) = fetchDurationAndDistance(url)
+                        tripDuration += dura
+                        totalDistance += dist
+                        last = next
+                    }
+
+                    withContext(Dispatchers.Main) {
+                        callback(pickupDuration, tripDuration, totalDistance)
+                    }
+                } catch (e: Exception) {
+                    Log.e("TADA_ERROR", "Multi-stop error: ${e.message}")
+                    withContext(Dispatchers.Main) {
+                        callback(0, 0, 0)
+                    }
+                }
+            }
+        }
+    }
+
 
     override fun onServiceConnected() {
         super.onServiceConnected()
         windowManager = getSystemService(Context.WINDOW_SERVICE) as WindowManager
+
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
@@ -59,7 +98,6 @@ class MyAccessibilityService : AccessibilityService() {
         val screenText = getAllText(rootNode).trim()
         val lines = screenText.split("\n").map { it.trim() }.filter { it.isNotEmpty() }
 
-        // Collect full addresses using lines before (S) postal codes
         val addressList = mutableListOf<String>()
         val postalCodeRegex = Regex("""\(S\)\d{5,6}""")
 
@@ -107,12 +145,12 @@ class MyAccessibilityService : AccessibilityService() {
                     )
 
                     val message = """
-                    💰 S$%.2f
-                    📍 %d mins to pickup
-                    🚕 %d mins trip
-                    🕒 %d mins in total 
-                    🤑 S$%.2f/min earnings
-                """.trimIndent().format(
+                        💰 S$%.2f
+                        📍 %d mins to pickup
+                        🚕 %d mins trip
+                        🕒 %d mins in total 
+                        🤑 S$%.2f/min earnings
+                    """.trimIndent().format(
                         fare, pickupMins, tripMins, totalMins, earningsPerMin
                     )
 
@@ -124,7 +162,6 @@ class MyAccessibilityService : AccessibilityService() {
             removeOverlay()
         }
     }
-
 
     private fun updateOverlayStyled(message: String, totalMins: Int, earningsPerMin: Double) {
         if (message == currentDisplayedText) return
@@ -139,7 +176,6 @@ class MyAccessibilityService : AccessibilityService() {
 
         val spannable = SpannableString(message)
         val earningsLine = "🤑 S$%.2f/min earnings".format(earningsPerMin)
-        val totalLine = "🕒 $totalMins mins in total"
         val earningsStart = message.indexOf(earningsLine)
         val earningsEnd = earningsStart + earningsLine.length
 
@@ -157,66 +193,68 @@ class MyAccessibilityService : AccessibilityService() {
             currentDisplayedText = ""
         }
 
+        val params = buildOverlayParams()
+        wakeScreen()
+        windowManager.addView(overlayView, params)
+    }
+
+    private fun showOverlay(message: String) {
+        removeOverlay()
+
+        val inflater = getSystemService(LAYOUT_INFLATER_SERVICE) as LayoutInflater
+        overlayView = inflater.inflate(R.layout.overlay_layout, null)
+
+        val textView = overlayView!!.findViewById<TextView>(R.id.overlay_text)
+        val dismissButton = overlayView!!.findViewById<Button>(R.id.dismiss_button)
+        textView.text = message
+
+        dismissButton.setOnClickListener {
+            removeOverlay()
+            lastShownText = ""
+            currentDisplayedText = ""
+        }
+
+        val params = buildOverlayParams()
+        wakeScreen()
+        windowManager.addView(overlayView, params)
+    }
+
+    private fun buildOverlayParams(): WindowManager.LayoutParams {
+        val type = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
+            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+        else
+            @Suppress("DEPRECATION") WindowManager.LayoutParams.TYPE_PHONE
+
+        @Suppress("DEPRECATION")
         val params = WindowManager.LayoutParams(
+            WindowManager.LayoutParams.MATCH_PARENT,
             WindowManager.LayoutParams.WRAP_CONTENT,
-            WindowManager.LayoutParams.WRAP_CONTENT,
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
-                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-            else
-                WindowManager.LayoutParams.TYPE_PHONE,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+            type,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                    WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or
+                    WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
+                    WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON or
+                    WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
+                    WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON,
             PixelFormat.TRANSLUCENT
         )
 
         params.gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
         params.y = 400
 
-        windowManager.addView(overlayView, params)
+        return params
     }
 
-    private fun getMultiStopTripDurations(
-        pickupAddress: String,
-        dropoffs: List<String>,
-        callback: (Int, Int, Int) -> Unit
-    ) {
-        getCurrentLocation { currentLocation ->
-            if (currentLocation == null) {
-                callback(0, 0, 0)
-                return@getCurrentLocation
-            }
-
-            CoroutineScope(Dispatchers.IO).launch {
-                try {
-                    val originLatLng = "${currentLocation.latitude},${currentLocation.longitude}"
-                    val pickup = URLEncoder.encode(pickupAddress, "UTF-8")
-                    val pickupUrl = URL("https://maps.googleapis.com/maps/api/directions/json?origin=$originLatLng&destination=$pickup&key=$apiKey")
-                    val pickupDuration = fetchDurationFromUrl(pickupUrl)
-
-                    var tripDuration = 0
-                    var totalDistance = 0
-                    var last = pickup
-                    for (addr in dropoffs) {
-                        val next = URLEncoder.encode(addr, "UTF-8")
-                        val url = URL("https://maps.googleapis.com/maps/api/directions/json?origin=$last&destination=$next&key=$apiKey")
-                        val (dura, dist) = fetchDurationAndDistance(url)
-                        tripDuration += dura
-                        totalDistance += dist
-                        last = next
-                    }
-
-                    withContext(Dispatchers.Main) {
-                        callback(pickupDuration, tripDuration, totalDistance)
-                    }
-                } catch (e: Exception) {
-                    Log.e("TADA_ERROR", "Multi-stop error: ${e.message}")
-                    withContext(Dispatchers.Main) {
-                        callback(0, 0, 0)
-                    }
-                }
-            }
+    private fun wakeScreen() {
+        val powerManager = getSystemService(POWER_SERVICE) as PowerManager
+        if (!powerManager.isInteractive) {
+            val wakeLock = powerManager.newWakeLock(
+                PowerManager.SCREEN_BRIGHT_WAKE_LOCK or PowerManager.ACQUIRE_CAUSES_WAKEUP,
+                "TadaProfitChecker:WakeLock"
+            )
+            wakeLock.acquire(3000)
         }
     }
-
 
     private fun getAllText(node: AccessibilityNodeInfo?): String {
         if (node == null) return ""
@@ -289,38 +327,6 @@ class MyAccessibilityService : AccessibilityService() {
             Log.e("TADA_ERROR", "Distance parsing error: ${e.message}")
             Pair(0, 0)
         }
-    }
-
-    private fun showOverlay(message: String) {
-        removeOverlay()
-
-        val inflater = getSystemService(LAYOUT_INFLATER_SERVICE) as LayoutInflater
-        overlayView = inflater.inflate(R.layout.overlay_layout, null)
-
-        val textView = overlayView!!.findViewById<TextView>(R.id.overlay_text)
-        val dismissButton = overlayView!!.findViewById<Button>(R.id.dismiss_button)
-        textView.text = message
-        dismissButton.setOnClickListener {
-            removeOverlay()
-            lastShownText = ""
-            currentDisplayedText = ""
-        }
-
-        val params = WindowManager.LayoutParams(
-            WindowManager.LayoutParams.WRAP_CONTENT,
-            WindowManager.LayoutParams.WRAP_CONTENT,
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
-                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-            else
-                WindowManager.LayoutParams.TYPE_PHONE,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
-            PixelFormat.TRANSLUCENT
-        )
-
-        params.gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
-        params.y = 400
-
-        windowManager.addView(overlayView, params)
     }
 
     private fun removeOverlay() {
